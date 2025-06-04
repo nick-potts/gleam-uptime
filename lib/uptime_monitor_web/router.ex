@@ -26,13 +26,6 @@ defmodule UptimeMonitorWeb.Router do
 
     live "/", DashboardLive
   end
-  
-  # Test endpoint for simulating failures
-  scope "/test", UptimeMonitorWeb do
-    pipe_through :api
-    
-    get "/health", TestController, :health
-  end
 
   # Other scopes may use custom stacks.
   # scope "/api", UptimeMonitorWeb do
