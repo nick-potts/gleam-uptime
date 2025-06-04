@@ -42,12 +42,16 @@ if config_env() == :prod do
   # Configure DNS cluster for Railway automatic discovery
   dns_query = cond do
     railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") ->
-      "uptime_monitor_*.#{railway_private_domain}"
+      # Match the new node naming pattern: uptime@{region}.{private_domain}
+      "uptime@*.#{railway_private_domain}"
     custom_query = System.get_env("DNS_CLUSTER_QUERY") ->
       custom_query
     true ->
       :ignore
   end
+  
+  IO.puts("=== DNS Cluster Config ===")
+  IO.puts("DNS Query: #{inspect(dns_query)}")
   
   config :uptime_monitor, :dns_cluster_query, dns_query
 
@@ -61,7 +65,11 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    check_origin: [
+      "https://#{System.get_env("RAILWAY_PUBLIC_DOMAIN") || host}",
+      "https://#{host}"
+    ]
 
   # ## SSL Support
   #

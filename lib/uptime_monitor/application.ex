@@ -33,6 +33,7 @@ defmodule UptimeMonitor.Application do
       UptimeMonitor.StatusTracker,
       UptimeMonitor.DowntimeCoordinator,
       UptimeMonitor.Checker,
+      UptimeMonitor.ClusterMonitor,
       # Start to serve requests, typically the last entry
       UptimeMonitorWeb.Endpoint
     ]
@@ -53,28 +54,41 @@ defmodule UptimeMonitor.Application do
 
   defp setup_node_name do
     # Set up distributed node name for Railway
+    IO.puts("=== Node Setup Debug ===")
+    IO.puts("RAILWAY_PRIVATE_DOMAIN: #{System.get_env("RAILWAY_PRIVATE_DOMAIN")}")
+    IO.puts("RAILWAY_REPLICA_ID: #{System.get_env("RAILWAY_REPLICA_ID")}")
+    IO.puts("RAILWAY_REPLICA_REGION: #{System.get_env("RAILWAY_REPLICA_REGION")}")
+    
     if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
-      # Use Railway replica ID if available, otherwise generate a unique ID
-      replica_id = System.get_env("RAILWAY_REPLICA_ID") || 
-                   System.get_env("RAILWAY_REPLICA_REGION") || 
-                   "replica-#{:rand.uniform(1000)}"
+      # Use Railway replica region as the unique identifier
+      replica_id = System.get_env("RAILWAY_REPLICA_REGION") || 
+                   System.get_env("RAILWAY_REPLICA_ID") || 
+                   "replica#{:rand.uniform(999)}"
       
-      node_name = "uptime_monitor_#{replica_id}@#{railway_private_domain}"
+      # Clean up replica_id to be DNS-safe
+      safe_replica_id = replica_id
+                        |> String.replace(~r/[^a-zA-Z0-9-]/, "")
+                        |> String.downcase()
       
-      # Start EPMD and set the node name
+      node_name = "uptime@#{safe_replica_id}.#{railway_private_domain}"
+      
+      IO.puts("Attempting to start node: #{node_name}")
+      
+      # Start EPMD daemon
       case System.cmd("epmd", ["-daemon"]) do
         {_, 0} -> 
-          IO.puts("EPMD started successfully")
-        {_, _} -> 
-          IO.puts("EPMD already running or failed to start")
+          IO.puts("✓ EPMD started successfully")
+        {output, code} -> 
+          IO.puts("EPMD exit code #{code}: #{output}")
       end
       
       # Configure the node
       case Node.start(String.to_atom(node_name)) do
         {:ok, _} -> 
-          IO.puts("Started distributed node: #{node_name}")
+          IO.puts("✓ Started distributed node: #{node_name}")
+          IO.puts("✓ Current node: #{Node.self()}")
         {:error, reason} -> 
-          IO.puts("Failed to start distributed node: #{inspect(reason)}")
+          IO.puts("✗ Failed to start distributed node: #{inspect(reason)}")
       end
     else
       IO.puts("RAILWAY_PRIVATE_DOMAIN not set - running in local mode")
