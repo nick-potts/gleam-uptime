@@ -41,7 +41,7 @@ if config_env() == :prod do
 
   # Configure libcluster for Railway
   if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
-    config :uptime_monitor, :libcluster,
+    config :libcluster,
       topologies: [
         railway_dns: [
           strategy: Cluster.Strategy.DNSPoll,
@@ -53,7 +53,7 @@ if config_env() == :prod do
         ]
       ]
   else
-    config :uptime_monitor, :libcluster, topologies: []
+    config :libcluster, topologies: []
   end
 
   config :uptime_monitor, UptimeMonitorWeb.Endpoint,
