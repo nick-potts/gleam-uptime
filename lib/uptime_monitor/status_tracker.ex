@@ -16,6 +16,9 @@ defmodule UptimeMonitor.StatusTracker do
     # Try to sync state from other cluster nodes
     state = sync_from_cluster() || initial_state
     
+    # Monitor node connections to sync when new nodes join
+    :net_kernel.monitor_nodes(true)
+    
     Logger.info("StatusTracker started with #{length(state.history)} history entries")
     {:ok, state}
   end
@@ -127,6 +130,28 @@ defmodule UptimeMonitor.StatusTracker do
 
   def handle_call(:get_full_state, _from, state) do
     {:reply, state, state}
+  end
+
+  # Handle node connections - sync state from newly connected nodes
+  def handle_info({:nodeup, node}, state) do
+    Logger.info("Node connected: #{node} - attempting to sync state")
+    
+    # Only sync if we have minimal state (new deployment)
+    if map_size(state.current_status) == 0 do
+      case try_sync_from_nodes([node]) do
+        nil -> 
+          {:noreply, state}
+        synced_state ->
+          Logger.info("✓ Synced state from newly connected node: #{node}")
+          {:noreply, synced_state}
+      end
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:nodedown, _node}, state) do
+    {:noreply, state}
   end
 
   defp find_current_period(history, region) do
