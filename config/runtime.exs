@@ -43,13 +43,11 @@ if config_env() == :prod do
   if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
     config :uptime_monitor, :libcluster,
       topologies: [
-        dns_poll: [
+        railway_dns: [
           strategy: Cluster.Strategy.DNSPoll,
-          config: [
-            polling_interval: 5_000,
-            query: railway_private_domain,
-            node_basename: "uptime"
-          ]
+          polling_interval: 5_000,
+          query: railway_private_domain,
+          node_basename: "uptime"
         ]
       ]
   else
