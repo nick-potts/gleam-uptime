@@ -56,7 +56,7 @@ defmodule UptimeMonitor.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
-      {:libcluster, "~> 3.3"},
+      {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"}
     ]
   end
