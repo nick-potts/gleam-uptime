@@ -7,8 +7,8 @@ defmodule UptimeMonitor.Application do
 
   @impl true
   def start(_type, _args) do
-    # Set up node name for Railway deployment
-    setup_node_name()
+    IO.puts("=== Application Starting ===")
+    IO.puts("Current node: #{Node.self()}")
     
     # Auto-connect to other nodes for simple distribution (fallback)
     if connect_to = System.get_env("CONNECT_TO") do
@@ -52,48 +52,4 @@ defmodule UptimeMonitor.Application do
     :ok
   end
 
-  defp setup_node_name do
-    # Set up distributed node name for Railway
-    IO.puts("=== Node Setup Debug ===")
-    IO.puts("RAILWAY_PRIVATE_DOMAIN: #{System.get_env("RAILWAY_PRIVATE_DOMAIN")}")
-    IO.puts("RAILWAY_REPLICA_ID: #{System.get_env("RAILWAY_REPLICA_ID")}")
-    IO.puts("RAILWAY_REPLICA_REGION: #{System.get_env("RAILWAY_REPLICA_REGION")}")
-    
-    if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
-      # Use Railway replica region as the unique identifier
-      replica_id = System.get_env("RAILWAY_REPLICA_REGION") || 
-                   System.get_env("RAILWAY_REPLICA_ID") || 
-                   "replica#{:rand.uniform(999)}"
-      
-      # Clean up replica_id to be DNS-safe
-      safe_replica_id = replica_id
-                        |> String.replace(~r/[^a-zA-Z0-9-]/, "")
-                        |> String.downcase()
-      
-      node_name = "uptime@#{safe_replica_id}.#{railway_private_domain}"
-      
-      IO.puts("Attempting to start node: #{node_name}")
-      
-      # Start EPMD daemon
-      case System.cmd("epmd", ["-daemon"]) do
-        {_, 0} -> 
-          IO.puts("✓ EPMD started successfully")
-        {output, code} -> 
-          IO.puts("EPMD exit code #{code}: #{output}")
-      end
-      
-      # Configure the node with longnames
-      case Node.start(String.to_atom(node_name), :longnames) do
-        {:ok, _} -> 
-          IO.puts("✓ Started distributed node: #{node_name}")
-          IO.puts("✓ Current node: #{Node.self()}")
-        {:error, {:already_started, _}} ->
-          IO.puts("✓ Node already started: #{Node.self()}")
-        {:error, reason} -> 
-          IO.puts("✗ Failed to start distributed node: #{inspect(reason)}")
-      end
-    else
-      IO.puts("RAILWAY_PRIVATE_DOMAIN not set - running in local mode")
-    end
-  end
 end
