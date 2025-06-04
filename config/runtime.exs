@@ -44,11 +44,10 @@ if config_env() == :prod do
     config :libcluster,
       topologies: [
         railway_dns: [
-          strategy: Cluster.Strategy.DNSPoll,
+          strategy: Cluster.Strategy.Kubernetes.DNS,
           config: [
-            polling_interval: 5_000,
-            query: railway_private_domain,
-            node_basename: "uptime"
+            service: railway_private_domain,
+            polling_interval: 5_000
           ]
         ]
       ]
