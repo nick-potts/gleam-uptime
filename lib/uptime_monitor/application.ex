@@ -10,6 +10,25 @@ defmodule UptimeMonitor.Application do
     IO.puts("=== Application Starting ===")
     IO.puts("Current node: #{Node.self()}")
     
+    # Debug DNS cluster configuration
+    dns_query = Application.get_env(:uptime_monitor, :dns_cluster_query)
+    IO.puts("=== DNS Cluster Debug ===")
+    IO.puts("DNS Query: #{inspect(dns_query)}")
+    IO.puts("RAILWAY_PRIVATE_DOMAIN: #{System.get_env("RAILWAY_PRIVATE_DOMAIN")}")
+    IO.puts("DNS_CLUSTER_QUERY env: #{System.get_env("DNS_CLUSTER_QUERY")}")
+    
+    # Test DNS resolution
+    if dns_query && dns_query != :ignore do
+      spawn(fn ->
+        :timer.sleep(3000)
+        IO.puts("=== Testing DNS Resolution ===")
+        case :inet.gethostbyname(String.to_charlist(System.get_env("RAILWAY_PRIVATE_DOMAIN") || "test")) do
+          {:ok, result} -> IO.puts("DNS resolution successful: #{inspect(result)}")
+          {:error, reason} -> IO.puts("DNS resolution failed: #{inspect(reason)}")
+        end
+      end)
+    end
+    
     # Auto-connect to other nodes for simple distribution (fallback)
     if connect_to = System.get_env("CONNECT_TO") do
       spawn(fn ->
@@ -25,7 +44,7 @@ defmodule UptimeMonitor.Application do
     children = [
       UptimeMonitorWeb.Telemetry,
       # UptimeMonitor.Repo,  # Disabled - not using database
-      {DNSCluster, query: Application.get_env(:uptime_monitor, :dns_cluster_query) || :ignore, polling_interval: 5_000},
+      {Cluster.Supervisor, [Application.get_env(:uptime_monitor, :libcluster, []), [name: UptimeMonitor.ClusterSupervisor]]},
       {Phoenix.PubSub, name: UptimeMonitor.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: UptimeMonitor.Finch},

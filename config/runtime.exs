@@ -39,9 +39,30 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  # DNS cluster query is now set in rel/env.sh.eex
-  dns_query = System.get_env("DNS_CLUSTER_QUERY") || :ignore
-  config :uptime_monitor, :dns_cluster_query, dns_query
+  # Configure libcluster for Railway
+  if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
+    config :uptime_monitor, :libcluster,
+      topologies: [
+        railway: [
+          strategy: Cluster.Strategy.Epmd,
+          config: [
+            hosts: [
+              :"uptime@*.#{railway_private_domain}"
+            ]
+          ]
+        ],
+        dns_poll: [
+          strategy: Cluster.Strategy.DNSPoll,
+          config: [
+            polling_interval: 5_000,
+            query: railway_private_domain,
+            node_basename: "uptime"
+          ]
+        ]
+      ]
+  else
+    config :uptime_monitor, :libcluster, topologies: []
+  end
 
   config :uptime_monitor, UptimeMonitorWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
