@@ -45,9 +45,11 @@ if config_env() == :prod do
       topologies: [
         railway_dns: [
           strategy: Cluster.Strategy.DNSPoll,
-          polling_interval: 5_000,
-          query: railway_private_domain,
-          node_basename: "uptime"
+          config: [
+            polling_interval: 5_000,
+            query: railway_private_domain,
+            node_basename: "uptime"
+          ]
         ]
       ]
   else
