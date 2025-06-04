@@ -43,13 +43,12 @@ if config_env() == :prod do
   if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
     config :libcluster,
       topologies: [
-        railway_cluster: [
-          strategy: Cluster.Strategy.Gossip,
+        railway_dns: [
+          strategy: Cluster.Strategy.DNSPoll,
           config: [
-            port: 45892,
-            if_addr: "0.0.0.0",
-            multicast_addr: "230.1.1.251",
-            multicast_ttl: 1
+            polling_interval: 5_000,
+            query: railway_private_domain,
+            node_basename: "uptime"
           ]
         ]
       ]
