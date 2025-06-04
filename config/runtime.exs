@@ -16,7 +16,8 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
+# Enable server by default in production, or when PHX_SERVER is set
+if System.get_env("PHX_SERVER") || config_env() == :prod do
   config :uptime_monitor, UptimeMonitorWeb.Endpoint, server: true
 end
 
