@@ -38,7 +38,17 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  config :uptime_monitor, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  # Configure DNS cluster for Railway automatic discovery
+  dns_query = cond do
+    railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") ->
+      "uptime_monitor_*.#{railway_private_domain}"
+    custom_query = System.get_env("DNS_CLUSTER_QUERY") ->
+      custom_query
+    true ->
+      :ignore
+  end
+  
+  config :uptime_monitor, :dns_cluster_query, dns_query
 
   config :uptime_monitor, UptimeMonitorWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
