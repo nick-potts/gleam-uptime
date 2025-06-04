@@ -82,11 +82,13 @@ defmodule UptimeMonitor.Application do
           IO.puts("EPMD exit code #{code}: #{output}")
       end
       
-      # Configure the node
-      case Node.start(String.to_atom(node_name)) do
+      # Configure the node with longnames
+      case Node.start(String.to_atom(node_name), :longnames) do
         {:ok, _} -> 
           IO.puts("✓ Started distributed node: #{node_name}")
           IO.puts("✓ Current node: #{Node.self()}")
+        {:error, {:already_started, _}} ->
+          IO.puts("✓ Node already started: #{Node.self()}")
         {:error, reason} -> 
           IO.puts("✗ Failed to start distributed node: #{inspect(reason)}")
       end

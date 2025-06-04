@@ -1,73 +1,132 @@
 defmodule UptimeMonitor.StatusTracker do
-  use Agent
+  use GenServer
+  require Logger
 
   def start_link(_) do
-    Agent.start_link(fn -> 
-      %{
-        current_status: %{},  # region => :up | :down
-        latencies: %{},       # region => latency_ms
-        history: []           # [{started_at, ended_at, status, region}, ...]
-      }
-    end, name: __MODULE__)
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+  def init(_) do
+    initial_state = %{
+      current_status: %{},  # region => :up | :down
+      latencies: %{},       # region => latency_ms
+      history: []           # [{started_at, ended_at, status, region}, ...]
+    }
+    
+    # Try to sync state from other cluster nodes
+    state = sync_from_cluster() || initial_state
+    
+    Logger.info("StatusTracker started with #{length(state.history)} history entries")
+    {:ok, state}
+  end
+
+  # Try to get state from another node in the cluster
+  defp sync_from_cluster do
+    case Node.list() do
+      [] -> 
+        Logger.info("No other nodes found - starting with empty state")
+        nil
+      nodes ->
+        Logger.info("Found cluster nodes: #{inspect(nodes)} - attempting to sync state")
+        try_sync_from_nodes(nodes)
+    end
+  end
+
+  defp try_sync_from_nodes([]), do: nil
+  defp try_sync_from_nodes([node | rest]) do
+    try do
+      case GenServer.call({__MODULE__, node}, :get_full_state, 5000) do
+        state when is_map(state) ->
+          Logger.info("✓ Synced state from node: #{node}")
+          state
+        _ ->
+          try_sync_from_nodes(rest)
+      end
+    catch
+      _kind, _error ->
+        Logger.warning("Failed to sync from node: #{node}")
+        try_sync_from_nodes(rest)
+    end
   end
 
   def update_status(region, status) do
-    Agent.update(__MODULE__, fn state ->
-      current = Map.get(state.current_status, region)
-      IO.puts("StatusTracker: #{region} status update from #{inspect(current)} to #{inspect(status)}")
-      
-      new_state = if current != status do
-        # Status changed - update history
-        now = DateTime.utc_now()
-        
-        # End the previous period if it exists
-        history = case find_current_period(state.history, region) do
-          nil -> 
-            state.history
-          {idx, period} ->
-            List.replace_at(state.history, idx, %{period | ended_at: now})
-        end
-        
-        # Start new period
-        new_period = %{
-          started_at: now,
-          ended_at: nil,
-          status: status,
-          region: region
-        }
-        
-        %{state | 
-          current_status: Map.put(state.current_status, region, status),
-          history: [new_period | history]
-        }
-      else
-        state
-      end
-      
-      new_state
-    end)
+    GenServer.cast(__MODULE__, {:update_status, region, status})
   end
 
   def update_latency(region, latency) do
-    Agent.update(__MODULE__, fn state ->
-      %{state | latencies: Map.put(state.latencies, region, latency)}
-    end)
+    GenServer.cast(__MODULE__, {:update_latency, region, latency})
   end
 
   def get_current_status do
-    Agent.get(__MODULE__, fn state -> state.current_status end)
+    GenServer.call(__MODULE__, :get_current_status)
   end
   
   def get_latencies do
-    Agent.get(__MODULE__, fn state -> state.latencies end)
+    GenServer.call(__MODULE__, :get_latencies)
   end
 
   def get_history(limit \\ 50) do
-    Agent.get(__MODULE__, fn state -> 
-      state.history
-      |> Enum.take(limit)
-      |> Enum.map(&format_history_entry/1)
-    end)
+    GenServer.call(__MODULE__, {:get_history, limit})
+  end
+
+  # GenServer callbacks
+  def handle_cast({:update_status, region, status}, state) do
+    current = Map.get(state.current_status, region)
+    IO.puts("StatusTracker: #{region} status update from #{inspect(current)} to #{inspect(status)}")
+    
+    new_state = if current != status do
+      # Status changed - update history
+      now = DateTime.utc_now()
+      
+      # End the previous period if it exists
+      history = case find_current_period(state.history, region) do
+        nil -> 
+          state.history
+        {idx, period} ->
+          List.replace_at(state.history, idx, %{period | ended_at: now})
+      end
+      
+      # Start new period
+      new_period = %{
+        started_at: now,
+        ended_at: nil,
+        status: status,
+        region: region
+      }
+      
+      %{state | 
+        current_status: Map.put(state.current_status, region, status),
+        history: [new_period | history]
+      }
+    else
+      state
+    end
+    
+    {:noreply, new_state}
+  end
+
+  def handle_cast({:update_latency, region, latency}, state) do
+    new_state = %{state | latencies: Map.put(state.latencies, region, latency)}
+    {:noreply, new_state}
+  end
+
+  def handle_call(:get_current_status, _from, state) do
+    {:reply, state.current_status, state}
+  end
+
+  def handle_call(:get_latencies, _from, state) do
+    {:reply, state.latencies, state}
+  end
+
+  def handle_call({:get_history, limit}, _from, state) do
+    history = state.history
+              |> Enum.take(limit)
+              |> Enum.map(&format_history_entry/1)
+    {:reply, history, state}
+  end
+
+  def handle_call(:get_full_state, _from, state) do
+    {:reply, state, state}
   end
 
   defp find_current_period(history, region) do
