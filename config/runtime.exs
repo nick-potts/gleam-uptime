@@ -30,7 +30,7 @@ if config_env() == :prod do
   # to check this value into version control, so we use an environment
   # variable instead.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
+    System.get_env("SECRET_KEY_BASE") |rel/env.sh.eex|
       raise """
       environment variable SECRET_KEY_BASE is missing.
       You can generate one by calling: mix phx.gen.secret
@@ -39,41 +39,8 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  # Set up node name for clustering
-  if railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") do
-    replica_region = System.get_env("RAILWAY_REPLICA_REGION") || 
-                     System.get_env("RAILWAY_REPLICA_ID") || 
-                     "replica#{:rand.uniform(999)}"
-    
-    # Clean up replica_id to be DNS-safe
-    safe_replica_id = replica_region
-                      |> String.replace(~r/[^a-zA-Z0-9-]/, "")
-                      |> String.downcase()
-    
-    node_name = "uptime@#{safe_replica_id}.#{railway_private_domain}"
-    
-    # Set the node name for the VM
-    System.put_env("RELEASE_DISTRIBUTION", "name")
-    System.put_env("RELEASE_NODE", node_name)
-    
-    IO.puts("=== Node Configuration ===")
-    IO.puts("Node name: #{node_name}")
-  end
-
-  # Configure DNS cluster for Railway automatic discovery
-  dns_query = cond do
-    railway_private_domain = System.get_env("RAILWAY_PRIVATE_DOMAIN") ->
-      # Match the new node naming pattern: uptime@{region}.{private_domain}
-      "uptime@*.#{railway_private_domain}"
-    custom_query = System.get_env("DNS_CLUSTER_QUERY") ->
-      custom_query
-    true ->
-      :ignore
-  end
-  
-  IO.puts("=== DNS Cluster Config ===")
-  IO.puts("DNS Query: #{inspect(dns_query)}")
-  
+  # DNS cluster query is now set in rel/env.sh.eex
+  dns_query = System.get_env("DNS_CLUSTER_QUERY") || :ignore
   config :uptime_monitor, :dns_cluster_query, dns_query
 
   config :uptime_monitor, UptimeMonitorWeb.Endpoint,
