@@ -19,7 +19,7 @@ config :uptime_monitor, UptimeMonitor.Repo,
 # Binding to loopback ipv4 address prevents access from other machines.
 config :uptime_monitor, UptimeMonitorWeb.Endpoint,
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: 4000],
+  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -83,3 +83,8 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Enable simple Erlang distribution for dev
+if node_name = System.get_env("NODE_NAME") do
+  System.cmd("epmd", ["-daemon"])
+end

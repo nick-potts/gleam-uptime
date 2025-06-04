@@ -7,15 +7,29 @@ defmodule UptimeMonitor.Application do
 
   @impl true
   def start(_type, _args) do
+    # Auto-connect to other nodes for simple distribution
+    if connect_to = System.get_env("CONNECT_TO") do
+      spawn(fn ->
+        :timer.sleep(2000)  # Wait for this node to be ready
+        target_node = String.to_atom(connect_to)
+        case Node.connect(target_node) do
+          true -> IO.puts("Connected to #{target_node}")
+          false -> IO.puts("Failed to connect to #{target_node}")
+        end
+      end)
+    end
+
     children = [
       UptimeMonitorWeb.Telemetry,
-      UptimeMonitor.Repo,
+      # UptimeMonitor.Repo,  # Disabled - not using database
       {DNSCluster, query: Application.get_env(:uptime_monitor, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: UptimeMonitor.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: UptimeMonitor.Finch},
-      # Start a worker by calling: UptimeMonitor.Worker.start_link(arg)
-      # {UptimeMonitor.Worker, arg},
+      # Our uptime monitoring components
+      UptimeMonitor.StatusTracker,
+      UptimeMonitor.DowntimeCoordinator,
+      UptimeMonitor.Checker,
       # Start to serve requests, typically the last entry
       UptimeMonitorWeb.Endpoint
     ]

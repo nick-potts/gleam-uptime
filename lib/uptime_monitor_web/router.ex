@@ -17,7 +17,14 @@ defmodule UptimeMonitorWeb.Router do
   scope "/", UptimeMonitorWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DashboardLive
+  end
+  
+  # Test endpoint for simulating failures
+  scope "/test", UptimeMonitorWeb do
+    pipe_through :api
+    
+    get "/health", TestController, :health
   end
 
   # Other scopes may use custom stacks.
