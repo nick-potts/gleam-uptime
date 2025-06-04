@@ -6,4 +6,8 @@ defmodule UptimeMonitorWeb.PageController do
     # so skip the default app layout.
     render(conn, :home, layout: false)
   end
+
+  def health(conn, _params) do
+    json(conn, %{status: "ok", timestamp: DateTime.utc_now()})
+  end
 end

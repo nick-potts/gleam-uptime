@@ -14,6 +14,13 @@ defmodule UptimeMonitorWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Healthcheck endpoint
+  scope "/", UptimeMonitorWeb do
+    pipe_through :api
+    
+    get "/health", PageController, :health
+  end
+
   scope "/", UptimeMonitorWeb do
     pipe_through :browser
 
