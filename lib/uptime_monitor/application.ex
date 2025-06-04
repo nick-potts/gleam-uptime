@@ -25,7 +25,7 @@ defmodule UptimeMonitor.Application do
     children = [
       UptimeMonitorWeb.Telemetry,
       # UptimeMonitor.Repo,  # Disabled - not using database
-      {DNSCluster, query: Application.get_env(:uptime_monitor, :dns_cluster_query) || :ignore},
+      {DNSCluster, query: Application.get_env(:uptime_monitor, :dns_cluster_query) || :ignore, polling_interval: 5_000},
       {Phoenix.PubSub, name: UptimeMonitor.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: UptimeMonitor.Finch},
