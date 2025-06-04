@@ -47,6 +47,7 @@ if config_env() == :prod do
           strategy: Cluster.Strategy.Kubernetes.DNS,
           config: [
             service: railway_private_domain,
+            application_name: "uptime",
             polling_interval: 5_000
           ]
         ]
